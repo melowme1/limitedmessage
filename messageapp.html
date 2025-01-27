@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Text Messaging App</title>
+    <style>
+        /* styles.css */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .chat-container {
+            width: 400px;
+            height: 500px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ccc;
+            padding: 10px;
+            height: 400px;
+        }
+
+        /* Style for each message */
+        .message {
+            background-color: #e1f5fe;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            word-wrap: break-word;
+            border: 2px solid #007bff;
+        }
+
+        /* Multi-line text input */
+        #messageInput {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            height: 100px;  /* Adjust the height to fit multiple lines */
+            resize: vertical;  /* Allows user to resize the textarea */
+            box-sizing: border-box;
+        }
+
+        #sendMessageBtn {
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #sendMessageBtn:hover {
+            background-color: #0056b3;
+        }
+
+        .error {
+            color: red;
+            font-size: 12px;
+        }
+
+        .info {
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .counter {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="messages" id="messages">
+            <!-- Messages will appear here -->
+        </div>
+        <textarea id="messageInput" placeholder="Type a message..."></textarea>
+        <button id="sendMessageBtn">Send</button>
+        <div id="errorMessage" class="error"></div>
+        
+        <!-- Info and Counters -->
+        <div class="info">
+            <span id="storageInfo" class="counter">Remaining storage: 800 MB</span><br>
+            <span id="charInfo" class="counter">Characters left: 1000</span>
+        </div>
+    </div>
+
+    <script>
+        // app.js
+
+        const MAX_SIZE_MB = 800;  // Max storage size in MB
+        const MAX_MESSAGE_LENGTH = 1000;  // Max characters per message
+        const STORAGE_KEY = 'messages';
+
+        // Function to get the total size of the messages (in MB)
+        function getTotalStorageSize() {
+            const messages = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+            let totalSize = 0;
+            messages.forEach(msg => {
+                totalSize += new TextEncoder().encode(msg).length;  // Get the byte size of each message
+            });
+            return totalSize / (1024 * 1024);  // Convert bytes to MB
+        }
+
+        // Function to manage message storage and deletion
+        function manageMessageStorage() {
+            const currentSize = getTotalStorageSize();
+            if (currentSize > MAX_SIZE_MB) {
+                // Remove the oldest messages to free space
+                let messages = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+                while (getTotalStorageSize() > MAX_SIZE_MB && messages.length > 0) {
+                    messages.shift();  // Remove the first message (oldest)
+                }
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+            }
+        }
+
+        // Function to update the storage and character counters
+        function updateCounters() {
+            const remainingStorage = MAX_SIZE_MB - getTotalStorageSize();
+            const remainingChars = MAX_MESSAGE_LENGTH - document.getElementById('messageInput').value.length;
+
+            document.getElementById('storageInfo').innerText = `Remaining storage: ${remainingStorage.toFixed(2)} MB`;
+            document.getElementById('charInfo').innerText = `Characters left: ${remainingChars}`;
+        }
+
+        // Function to save and load messages using localStorage
+        function loadMessages() {
+            const messages = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.innerHTML = '';  // Clear previous messages
+
+            // Render each message in a rectangle
+            messages.forEach(msg => {
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message');
+                messageElement.innerText = msg;
+                messagesContainer.appendChild(messageElement);
+            });
+
+            // Update counters after loading messages
+            updateCounters();
+        }
+
+        // Function to handle sending a new message
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const newMessage = messageInput.value.trim();
+
+            if (newMessage.length > MAX_MESSAGE_LENGTH) {
+                document.getElementById('errorMessage').innerText = `Message exceeds the ${MAX_MESSAGE_LENGTH} character limit!`;
+                return;
+            }
+
+            // Check if sending this message would exceed the storage limit
+            const currentSize = getTotalStorageSize();
+            const messageSize = new TextEncoder().encode(newMessage).length / (1024 * 1024);  // Message size in MB
+            if (currentSize + messageSize > MAX_SIZE_MB) {
+                document.getElementById('errorMessage').innerText = `Message would exceed storage limit of ${MAX_SIZE_MB} MB.`;
+                return;
+            }
+
+            // Clear error message if it's valid
+            document.getElementById('errorMessage').innerText = '';
+
+            // Get current messages
+            const messages = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+
+            // Add new message to the messages array
+            messages.push(newMessage);
+
+            // Save messages to localStorage
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+
+            // Manage message storage (delete old ones if needed)
+            manageMessageStorage();
+
+            // Clear the input
+            messageInput.value = '';
+
+            // Reload messages to reflect the new message in the current window
+            loadMessages();
+        }
+
+        // Event listeners
+        document.getElementById('sendMessageBtn').addEventListener('click', sendMessage);
+        document.getElementById('messageInput').addEventListener('input', (event) => {
+            const currentLength = event.target.value.length;
+            const remainingChars = MAX_MESSAGE_LENGTH - currentLength;
+
+            // Limit the number of characters typed
+            if (remainingChars <= 0) {
+                event.target.value = event.target.value.slice(0, MAX_MESSAGE_LENGTH);
+            }
+
+            // Update counters when typing
+            updateCounters();
+        });
+
+        // Listen for changes in localStorage and update messages in all open tabs/windows
+        window.addEventListener('storage', (event) => {
+            if (event.key === STORAGE_KEY) {
+                loadMessages(); // Reload messages when 'messages' is updated
+            }
+        });
+
+        // Load messages when the page loads
+        window.onload = loadMessages;
+    </script>
+</body>
+</html>
